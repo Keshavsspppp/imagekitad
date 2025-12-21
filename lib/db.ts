@@ -1,43 +1,36 @@
 import mongoose from "mongoose";
-import { cache } from "react";
 
+const MONGODB_URI = process.env.MONGODB_URI;
 
-const MONGODB_URI = process.env.MONGODB_URI!;
+let cached = global.mongoose;
 
-if(!MONGODB_URI){
-    throw new Error(" Please define mongodb Uri in environmental variable");
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
 }
 
-let cached = global.mongoose
+export async function connectToDatabase() {
+  if (!MONGODB_URI) {
+    throw new Error("Please define MONGODB_URI in env variables");
+  }
+  if (cached.conn) {
+    return cached.conn;
+  }
 
-if(!cached){
-    cached = global.mongoose = { conn:  null , promise: null}
-}
+  if (!cached.promise) {
+    const opts = {
+      bufferCommands: true,
+      maxPoolSize: 10,
+    };
 
+    cached.promise = mongoose.connect(MONGODB_URI, opts).then(() => mongoose.connection);
+  }
 
-export async function connectToDatabase(){
-    if(cache.conn){
-        return cached.conn
-    }
+  try {
+    cached.conn = await cached.promise;
+  } catch (error) {
+    cached.promise = null;
+    throw error;
+  }
 
-    if(!cached.promise){
-        const opts = {
-            bufferCommands: true,
-            maxPoolSize: 10
-        }
-
-
-        mongoose
-        .connect(MONGODB_URI,opts )
-        .then(() => mongoose.connection)
-
-    }
-
-    try {
-        cached.conn = await cached.promise 
-    } catch (error) {
-        cached.promise = null
-        throw error
-    }
-    return cached.conn
+  return cached.conn;
 }
